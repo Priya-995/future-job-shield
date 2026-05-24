@@ -9,8 +9,38 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as StudentRouteImport } from './routes/student'
+import { Route as RecruiterRouteImport } from './routes/recruiter'
+import { Route as JobsRouteImport } from './routes/jobs'
+import { Route as FitRouteImport } from './routes/fit'
+import { Route as AnalysisRouteImport } from './routes/analysis'
 import { Route as IndexRouteImport } from './routes/index'
 
+const StudentRoute = StudentRouteImport.update({
+  id: '/student',
+  path: '/student',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RecruiterRoute = RecruiterRouteImport.update({
+  id: '/recruiter',
+  path: '/recruiter',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JobsRoute = JobsRouteImport.update({
+  id: '/jobs',
+  path: '/jobs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FitRoute = FitRouteImport.update({
+  id: '/fit',
+  path: '/fit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnalysisRoute = AnalysisRouteImport.update({
+  id: '/analysis',
+  path: '/analysis',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -19,28 +49,90 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/analysis': typeof AnalysisRoute
+  '/fit': typeof FitRoute
+  '/jobs': typeof JobsRoute
+  '/recruiter': typeof RecruiterRoute
+  '/student': typeof StudentRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/analysis': typeof AnalysisRoute
+  '/fit': typeof FitRoute
+  '/jobs': typeof JobsRoute
+  '/recruiter': typeof RecruiterRoute
+  '/student': typeof StudentRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/analysis': typeof AnalysisRoute
+  '/fit': typeof FitRoute
+  '/jobs': typeof JobsRoute
+  '/recruiter': typeof RecruiterRoute
+  '/student': typeof StudentRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/analysis' | '/fit' | '/jobs' | '/recruiter' | '/student'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/analysis' | '/fit' | '/jobs' | '/recruiter' | '/student'
+  id:
+    | '__root__'
+    | '/'
+    | '/analysis'
+    | '/fit'
+    | '/jobs'
+    | '/recruiter'
+    | '/student'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AnalysisRoute: typeof AnalysisRoute
+  FitRoute: typeof FitRoute
+  JobsRoute: typeof JobsRoute
+  RecruiterRoute: typeof RecruiterRoute
+  StudentRoute: typeof StudentRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/student': {
+      id: '/student'
+      path: '/student'
+      fullPath: '/student'
+      preLoaderRoute: typeof StudentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/recruiter': {
+      id: '/recruiter'
+      path: '/recruiter'
+      fullPath: '/recruiter'
+      preLoaderRoute: typeof RecruiterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/jobs': {
+      id: '/jobs'
+      path: '/jobs'
+      fullPath: '/jobs'
+      preLoaderRoute: typeof JobsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/fit': {
+      id: '/fit'
+      path: '/fit'
+      fullPath: '/fit'
+      preLoaderRoute: typeof FitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/analysis': {
+      id: '/analysis'
+      path: '/analysis'
+      fullPath: '/analysis'
+      preLoaderRoute: typeof AnalysisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -53,6 +145,11 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AnalysisRoute: AnalysisRoute,
+  FitRoute: FitRoute,
+  JobsRoute: JobsRoute,
+  RecruiterRoute: RecruiterRoute,
+  StudentRoute: StudentRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
