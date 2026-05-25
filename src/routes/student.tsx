@@ -67,7 +67,7 @@ type ResumeAnalysis = {
   profile_strength: number;
   skill_gaps: SkillGap[];
   recommended_roles: RecommendedRole[];
-  recommended_internships: RecommendedInternship[];
+  recommended_internships?: RecommendedInternship[];
   action_plan: ActionPlan[];
   profile_tips: string[];
   summary?: string;
@@ -154,7 +154,6 @@ function Student() {
   };
 
   const handleAnalyze = async () => { 
-    console.log('Starting analysis...');
     setLoading(true); 
     setError(null); 
      
@@ -162,24 +161,72 @@ function Student() {
       let profileContext = ""; 
        
       if (uploadedFile) { 
-        console.log('Reading PDF file properly...');
         const text = await readFileAsText(uploadedFile); 
-        console.log('Extracted text length:', text.length);
-        profileContext = `Resume content: ${text.slice(0, 4000)}`; 
+        // Limit text and remove special characters 
+        profileContext = text 
+          .slice(0, 2000) 
+          .replace(/[^\x20-\x7E\n]/g, ' ') 
+          .replace(/\s+/g, ' ') 
+          .trim(); 
       } else if (linkedinUrl) { 
-        console.log('Using LinkedIn URL:', linkedinUrl);
-        profileContext = `LinkedIn URL: ${linkedinUrl}.  
-        Based on this LinkedIn profile URL, infer a typical  
-        Indian student/fresher profile with relevant skills.`; 
+        profileContext = linkedinUrl; 
       } else { 
-        alert("Please upload a resume or enter LinkedIn URL"); 
+        alert("Please upload resume or enter LinkedIn URL"); 
         setLoading(false); 
         return; 
       } 
-       
-      console.log('Calling Groq API...');
+   
+      const prompt = `You are analyzing a student profile for career guidance. 
+  Profile info: ${profileContext} 
+  LinkedIn: ${linkedinUrl || 'not provided'} 
+   
+  Return ONLY this JSON (no markdown, no backticks, just raw JSON): 
+  { 
+    "name": "Student Name", 
+    "experience_level": "Fresher", 
+    "profile_strength": 70, 
+    "summary": "Brief 2 line profile summary", 
+    "current_skills": [ 
+      {"skill": "React", "score": 75}, 
+      {"skill": "JavaScript", "score": 80} 
+    ], 
+    "skill_gaps": [ 
+      { 
+        "skill": "Docker", 
+        "why_needed": "Required for DevOps roles", 
+        "how_to_learn": "TechWorld with Nana on YouTube", 
+        "time_to_learn": "2 weeks" 
+      } 
+    ], 
+    "recommended_roles": [ 
+      { 
+        "title": "Frontend Developer", 
+        "company_type": "Product Startup", 
+        "match_percentage": 82, 
+        "why_fit": "Strong React skills match requirement" 
+      } 
+    ], 
+    "action_plan": [ 
+      { 
+        "week": "Week 1-2", 
+        "task": "Complete Docker basics course", 
+        "resource": "YouTube - TechWorld with Nana" 
+      }, 
+      { 
+        "week": "Week 3-4",  
+        "task": "Build a full stack project", 
+        "resource": "Add to GitHub portfolio" 
+      } 
+    ], 
+    "profile_tips": [ 
+      "Add GitHub profile link to resume", 
+      "Build 2 more projects to strengthen portfolio", 
+      "Get AWS Cloud Practitioner certification" 
+    ] 
+  }`; 
+   
       const response = await fetch( 
-        `https://api.groq.com/openai/v1/chat/completions`, 
+        'https://api.groq.com/openai/v1/chat/completions', 
         { 
           method: 'POST', 
           headers: { 
@@ -190,97 +237,40 @@ function Student() {
             model: 'llama-3.3-70b-versatile', 
             messages: [ 
               { 
-                role: 'system', 
-                content: 'You are a career coach for Indian students. Return ONLY valid JSON. No conversational text. No markdown backticks.' 
-              }, 
-              { 
-                role: 'user',  
-                content: `Analyze this profile: ${profileContext} 
-                 
-  Return ONLY this JSON structure: 
-  { 
-    "name": "string", 
-    "experience_level": "Fresher", 
-    "profile_strength": 65, 
-    "summary": "2 line summary", 
-    "current_skills": [ 
-      {"skill": "React", "score": 80} 
-    ], 
-    "skill_gaps": [ 
-      { 
-        "skill": "Docker", 
-        "why_needed": "reason", 
-        "how_to_learn": "resource", 
-        "time_to_learn": "2 weeks" 
-      } 
-    ], 
-    "recommended_roles": [ 
-      { 
-        "title": "Frontend Developer", 
-        "company_type": "Startup", 
-        "match_percentage": 85, 
-        "why_fit": "reason" 
-      } 
-    ], 
-    "recommended_internships": [
-      {
-        "title": "Backend Intern",
-        "skills_needed": "Node.js, MongoDB",
-        "match_percentage": 75
-      }
-    ],
-    "action_plan": [ 
-      { 
-        "week": "Week 1-2", 
-        "task": "Learn Docker basics", 
-        "resource": "YouTube - TechWorld with Nana" 
-      } 
-    ], 
-    "profile_tips": ["tip1", "tip2", "tip3"] 
-  }` 
+                role: 'user', 
+                content: prompt 
               } 
             ], 
-            response_format: { type: "json_object" },
-            max_tokens: 2000 
+            max_tokens: 1500, 
+            temperature: 0.3 
           }) 
         } 
       ); 
+   
+      if (!response.ok) { 
+        const errData = await response.json(); 
+        throw new Error(`API ${response.status}: ${JSON.stringify(errData)}`); 
+      } 
        
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-
       const data = await response.json(); 
-      const rawContent = data.choices[0].message.content;
-      console.log('Raw Groq content:', rawContent); 
+      const text = data.choices[0].message.content; 
        
-      // More robust JSON extraction
-      let cleaned = rawContent.trim();
-      if (cleaned.includes("```")) {
-        cleaned = cleaned.replace(/```json|```/g, "").trim();
-      }
-      
-      // Find the first { and last }
-      const firstBrace = cleaned.indexOf("{");
-      const lastBrace = cleaned.lastIndexOf("}");
-      if (firstBrace !== -1 && lastBrace !== -1) {
-        cleaned = cleaned.substring(firstBrace, lastBrace + 1);
-      }
-
-      const result = JSON.parse(cleaned); 
+      // Clean and parse JSON 
+      const jsonMatch = text.match(/\{[\s\S]*\}/); 
+      if (!jsonMatch) throw new Error('No JSON in response'); 
        
-      console.log('Parsed result:', result);
+      const result = JSON.parse(jsonMatch[0]); 
       localStorage.setItem('resumeData', JSON.stringify(result)); 
       setAnalysisResult(result); 
       toast.success("Profile analyzed successfully!");
-
+      
       // Scroll to results smoothly
       setTimeout(() => {
         resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 100);
        
     } catch (err: any) { 
-      console.error('Analysis error:', err); 
+      console.error('Full error:', err); 
       setError('Analysis failed: ' + err.message); 
       toast.error('Analysis failed: ' + err.message);
     } finally { 
@@ -469,23 +459,25 @@ function Student() {
                 </div>
               </section>
 
-              <section>
-                <div className="flex items-center gap-2 mb-6">
-                  <CheckCircle2 className="h-5 w-5 text-accent" />
-                  <h2 className="text-2xl font-display font-bold uppercase tracking-wider">Top Internships</h2>
-                </div>
-                <div className="grid sm:grid-cols-2 gap-4">
-                  {(analysisResult.recommended_internships || []).map((intern) => (
-                    <div key={intern.title} className="glass rounded-2xl p-5 text-center">
-                      <div className="h-10 w-10 rounded-xl bg-accent/10 text-accent flex items-center justify-center mx-auto mb-3 font-bold text-xs">
-                        {intern.match_percentage}%
+              {analysisResult.recommended_internships && analysisResult.recommended_internships.length > 0 && (
+                <section>
+                  <div className="flex items-center gap-2 mb-6">
+                    <CheckCircle2 className="h-5 w-5 text-accent" />
+                    <h2 className="text-2xl font-display font-bold uppercase tracking-wider">Top Internships</h2>
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    {analysisResult.recommended_internships.map((intern) => (
+                      <div key={intern.title} className="glass rounded-2xl p-5 text-center">
+                        <div className="h-10 w-10 rounded-xl bg-accent/10 text-accent flex items-center justify-center mx-auto mb-3 font-bold text-xs">
+                          {intern.match_percentage}%
+                        </div>
+                        <h3 className="font-bold text-sm mb-1">{intern.title}</h3>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider line-clamp-1">{intern.skills_needed}</p>
                       </div>
-                      <h3 className="font-bold text-sm mb-1">{intern.title}</h3>
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider line-clamp-1">{intern.skills_needed}</p>
-                    </div>
-                  ))}
-                </div>
-              </section>
+                    ))}
+                  </div>
+                </section>
+              )}
             </div>
 
             {/* 6. Action Plan */}

@@ -110,9 +110,8 @@ function Fit() {
               role: "user",
               content: `Analyze job fit: 
               Candidate: ${resumeData?.name || "Candidate"} 
-              Skills: ${resumeData?.skills?.join(", ") || "Not provided"} 
+              Skills: ${resumeData?.current_skills?.map((s: any) => s.skill).join(", ") || "Not provided"} 
               Experience: ${resumeData?.experience_level || "Not provided"} 
-              Education: ${resumeData?.education || "Not provided"} 
               Target Job: ${targetJob} 
               
               Return ONLY JSON no markdown: 
