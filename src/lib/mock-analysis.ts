@@ -51,23 +51,36 @@ export async function analyze(input: RecruiterInput): Promise<AnalysisResult> {
   const data = await response.json();
   const content = JSON.parse(data.choices[0].message.content);
 
+  const normalize = (n: number) => {
+    const val = n < 1 ? n * 100 : n;
+    return Math.round(val);
+  };
+
+  const overallScore = normalize(content.overall_score);
+  const fraudRisk = normalize(content.fraud_risk);
+  const domainCredibility = normalize(content.domain_credibility);
+  const salaryTransparency = normalize(content.salary_transparency);
+  const hiringAuthenticity = normalize(content.hiring_authenticity);
+  const scamDetection = normalize(content.scam_detection);
+  const languageAnalysis = normalize(content.language_analysis);
+
   const tone = (n: number): "good" | "warn" | "bad" => (n >= 75 ? "good" : n >= 50 ? "warn" : "bad");
 
   const metrics = [
     {
       label: "Fraud Risk",
-      value: content.fraud_risk,
-      tone: content.fraud_risk < 25 ? ("good" as const) : content.fraud_risk < 55 ? ("warn" as const) : ("bad" as const),
+      value: fraudRisk,
+      tone: fraudRisk < 25 ? ("good" as const) : fraudRisk < 55 ? ("warn" as const) : ("bad" as const),
     },
-    { label: "Domain Credibility", value: content.domain_credibility, tone: tone(content.domain_credibility) },
-    { label: "Salary Transparency", value: content.salary_transparency, tone: tone(content.salary_transparency) },
-    { label: "Hiring Authenticity", value: content.hiring_authenticity, tone: tone(content.hiring_authenticity) },
-    { label: "AI Scam Detection", value: content.scam_detection, tone: tone(content.scam_detection) },
-    { label: "Language Analysis", value: content.language_analysis, tone: tone(content.language_analysis) },
+    { label: "Domain Credibility", value: domainCredibility, tone: tone(domainCredibility) },
+    { label: "Salary Transparency", value: salaryTransparency, tone: tone(salaryTransparency) },
+    { label: "Hiring Authenticity", value: hiringAuthenticity, tone: tone(hiringAuthenticity) },
+    { label: "AI Scam Detection", value: scamDetection, tone: tone(scamDetection) },
+    { label: "Language Analysis", value: languageAnalysis, tone: tone(languageAnalysis) },
   ];
 
   return {
-    trustScore: content.overall_score,
+    trustScore: overallScore,
     verdict: content.verdict,
     metrics,
     positives: content.positive_signals,

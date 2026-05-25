@@ -1,9 +1,11 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { motion } from "framer-motion";
-import { useState } from "react";
-import { Sparkles, TrendingUp, Target, MessageSquare, Award, ArrowRight } from "lucide-react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect } from "react";
+import { Sparkles, TrendingUp, Target, MessageSquare, Award, ArrowRight, Loader2, Search, RotateCcw } from "lucide-react";
 import { TypingText } from "@/components/TypingText";
 import { GlowButton } from "@/components/GlowButton";
+import { TrustScoreRing } from "@/components/TrustScoreRing";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/fit")({
   head: () => ({
@@ -17,86 +19,252 @@ export const Route = createFileRoute("/fit")({
   component: Fit,
 });
 
-const SECTIONS = [
-  {
-    icon: Target,
-    title: "Why you match",
-    body: "You've shipped 3 React projects this year, your TypeScript fundamentals are solid (82%), and your GitHub activity shows consistent commits. The Stripe Frontend Intern role rewards exactly that — execution speed plus type discipline.",
-  },
-  {
-    icon: TrendingUp,
-    title: "What's missing",
-    body: "System design depth (54%) and ML fundamentals (48%) are below the bar for senior-track roles. You also lack a public portfolio link — recruiters drop applications without one ~38% of the time.",
-  },
-  {
-    icon: Sparkles,
-    title: "Growth suggestions",
-    body: "Spend two weeks on a single end-to-end project: design doc, schema, deploy, postmortem. That moves system design from 54 → 75. Add a one-page portfolio with three case studies. Don't chase certifications — ship.",
-  },
-  {
-    icon: MessageSquare,
-    title: "Honest feedback",
-    body: "You're closer than you think. Your weakness isn't skill — it's narrative. Your resume buries your best work. Lead every bullet with the outcome, not the tool. Hiring managers scan in 7 seconds.",
-  },
-  {
-    icon: Award,
-    title: "Final recommendation",
-    body: "Apply to Stripe, Linear, and Figma this week. They reward your profile shape. Skip Vercel for now — their ML-heavy postings will out-rank you. Re-run this analysis after you ship one new project.",
-  },
-];
+type FitAnalysis = {
+  match_percentage: number;
+  verdict: string;
+  why_you_match: string[];
+  whats_missing: string[];
+  growth_suggestions: { skill: string; action: string; timeline: string }[];
+  honest_feedback: string;
+  final_recommendation: string;
+};
 
 function Fit() {
-  const [i, setI] = useState(0);
+  const [resumeData, setResumeData] = useState<any>(null);
+  const [targetJob, setTargetJob] = useState("");
+  const [analyzing, setAnalyzing] = useState(false);
+  const [fitResult, setFitResult] = useState<FitAnalysis | null>(null);
+  const [sectionIndex, setSectionIndex] = useState(0);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const saved = localStorage.getItem("resumeData");
+    if (saved) {
+      setResumeData(JSON.parse(saved));
+    }
+  }, []);
+
+  const handleAnalyzeFit = async () => {
+    if (!targetJob.trim()) {
+      toast.error("Please enter a target job role");
+      return;
+    }
+
+    setAnalyzing(true);
+    setFitResult(null);
+    setSectionIndex(0);
+
+    const apiKey = import.meta.env.VITE_GROQ_API_KEY;
+    if (!apiKey) {
+      toast.error("VITE_GROQ_API_KEY is not defined");
+      setAnalyzing(false);
+      return;
+    }
+
+    try {
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            {
+              role: "system",
+              content: "You are a brutally honest career advisor for Indian job seekers. No sugarcoating.",
+            },
+            {
+              role: "user",
+              content: `Analyze job fit: 
+              Candidate: ${resumeData.name} 
+              Skills: ${resumeData.skills.join(", ")} 
+              Experience: ${resumeData.experience_level} 
+              Education: ${resumeData.education} 
+              Target Job: ${targetJob} 
+              
+              Return ONLY JSON no markdown: 
+              { 
+                "match_percentage": 0-100, 
+                "verdict": "Strong Match or Partial Match or Not Ready Yet", 
+                "why_you_match": ["3 specific points"], 
+                "whats_missing": ["3-4 skill gaps"], 
+                "growth_suggestions": [ 
+                  { "skill": "string", "action": "string", "timeline": "string" } 
+                ], 
+                "honest_feedback": "string (2-3 brutally honest sentences)", 
+                "final_recommendation": "string" 
+              }`,
+            },
+          ],
+          response_format: { type: "json_object" },
+        }),
+      });
+
+      if (!response.ok) throw new Error("API call failed");
+
+      const data = await response.json();
+      const analysis: FitAnalysis = JSON.parse(data.choices[0].message.content);
+      setFitResult(analysis);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to analyze fit. Please try again.");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  if (!resumeData) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center px-6 text-center">
+        <div className="glass rounded-3xl p-10 max-w-md">
+          <FileText className="h-12 w-12 text-primary mx-auto mb-4 opacity-50" />
+          <h1 className="text-2xl font-display font-bold mb-3">No Resume Found</h1>
+          <p className="text-muted-foreground mb-8 text-sm leading-relaxed">
+            Please upload and analyze your resume on the Student page first so we can generate your honest fit.
+          </p>
+          <GlowButton onClick={() => navigate({ to: "/student" })} size="lg">
+            Go to Student Page <ArrowRight className="h-4 w-4" />
+          </GlowButton>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="px-6 pb-12">
       <div className="mx-auto max-w-3xl">
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mb-8 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full glass px-3 py-1 text-xs mb-4">
-            <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" /> AI Reasoning · Live
+          <div className="inline-flex items-center gap-2 rounded-full glass px-3 py-1 text-xs mb-4 text-primary">
+            <Sparkles className="h-3 w-3" /> Honest Career Advisor
           </div>
           <h1 className="text-4xl sm:text-5xl font-display font-bold">Your Honest Fit</h1>
-          <p className="mt-3 text-muted-foreground">No fluff. No "you've got this." Just signal — generated for your profile.</p>
+          <p className="mt-3 text-muted-foreground max-w-xl mx-auto">
+            Targeting a specific role? We'll tell you exactly where you stand. No sugarcoating.
+          </p>
         </motion.div>
 
-        <div className="space-y-4">
-          {SECTIONS.slice(0, i + 1).map((s, idx) => {
-            const Icon = s.icon;
-            const isLast = idx === i;
-            return (
-              <motion.div
-                key={s.title}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4 }}
-                className="glass rounded-2xl p-5 sm:p-6"
+        {!fitResult && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }} 
+            animate={{ opacity: 1, scale: 1 }} 
+            className="glass rounded-3xl p-8 mb-12"
+          >
+            <div className="relative">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+                <Search className="h-5 w-5" />
+              </div>
+              <input
+                type="text"
+                placeholder="e.g. SDE at Google, Data Analyst at Flipkart"
+                value={targetJob}
+                onChange={(e) => setTargetJob(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAnalyzeFit()}
+                className="w-full rounded-2xl bg-foreground/5 border border-border py-4 pl-12 pr-4 text-lg focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+              />
+            </div>
+            <div className="mt-6 flex justify-center">
+              <GlowButton 
+                onClick={handleAnalyzeFit} 
+                disabled={analyzing} 
+                size="xl" 
+                className="w-full sm:w-auto min-w-[200px]"
               >
-                <div className="flex items-start gap-3">
-                  <div className="h-10 w-10 rounded-xl bg-gradient-primary flex items-center justify-center flex-shrink-0">
-                    <Icon className="h-5 w-5 text-primary-foreground" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs uppercase tracking-[0.15em] text-primary mb-1">{s.title}</div>
-                    <div className="text-[15px] leading-relaxed text-foreground/90">
-                      {isLast ? (
-                        <TypingText text={s.body} speed={14} onDone={() => setI((v) => Math.min(v + 1, SECTIONS.length - 1))} />
-                      ) : (
-                        s.body
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-
-        {i >= SECTIONS.length - 1 && (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="mt-8 flex flex-wrap justify-center gap-3">
-            <Link to="/jobs"><GlowButton size="lg">View matching jobs <ArrowRight className="h-4 w-4" /></GlowButton></Link>
-            <button onClick={() => setI(0)} className="rounded-full glass px-5 py-2.5 text-sm hover:bg-foreground/5">Replay analysis</button>
+                {analyzing ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" /> Analyzing...
+                  </>
+                ) : (
+                  <>Analyze My Fit <ArrowRight className="h-4 w-4" /></>
+                )}
+              </GlowButton>
+            </div>
           </motion.div>
         )}
+
+        <AnimatePresence>
+          {fitResult && (
+            <div className="space-y-6">
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                className="glass rounded-3xl p-8 flex flex-col items-center text-center"
+              >
+                <TrustScoreRing score={fitResult.match_percentage} size={200} label="Match Fit" />
+                <div className="mt-6">
+                  <div className="text-xs uppercase tracking-[0.2em] text-primary mb-1">Verdict</div>
+                  <h2 className="text-3xl font-display font-bold">{fitResult.verdict}</h2>
+                  <p className="mt-2 text-muted-foreground italic">Target: {targetJob}</p>
+                </div>
+              </motion.div>
+
+              <div className="space-y-4">
+                {[
+                  { icon: Target, title: "Why you match", content: fitResult.why_you_match.join(" · ") },
+                  { icon: TrendingUp, title: "What's missing", content: fitResult.whats_missing.join(" · ") },
+                  { icon: Award, title: "Growth Plan", 
+                    content: fitResult.growth_suggestions.map(s => `${s.skill}: ${s.action} (${s.timeline})`).join("\n") 
+                  },
+                  { icon: MessageSquare, title: "Honest Feedback", content: fitResult.honest_feedback },
+                  { icon: Sparkles, title: "Final Recommendation", content: fitResult.final_recommendation },
+                ].slice(0, sectionIndex + 1).map((s, idx) => {
+                  const Icon = s.icon;
+                  const isLast = idx === sectionIndex;
+                  return (
+                    <motion.div
+                      key={s.title}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="glass rounded-2xl p-6"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="h-10 w-10 rounded-xl bg-gradient-primary flex items-center justify-center flex-shrink-0">
+                          <Icon className="h-5 w-5 text-primary-foreground" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-xs uppercase tracking-[0.15em] text-primary mb-1">{s.title}</div>
+                          <div className="text-sm leading-relaxed whitespace-pre-line">
+                            {isLast ? (
+                              <TypingText 
+                                text={s.content} 
+                                speed={10} 
+                                onDone={() => setSectionIndex(v => Math.min(v + 1, 4))} 
+                              />
+                            ) : (
+                              s.content
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+
+              {sectionIndex >= 4 && (
+                <motion.div 
+                  initial={{ opacity: 0 }} 
+                  animate={{ opacity: 1 }} 
+                  className="mt-12 flex justify-center gap-4"
+                >
+                  <GlowButton 
+                    variant="ghost" 
+                    onClick={() => {
+                      setFitResult(null);
+                      setTargetJob("");
+                    }}
+                  >
+                    <RotateCcw className="h-4 w-4" /> Try Another Job
+                  </GlowButton>
+                  <Link to="/jobs">
+                    <GlowButton>View Matching Jobs <ArrowRight className="h-4 w-4" /></GlowButton>
+                  </Link>
+                </motion.div>
+              )}
+            </div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
