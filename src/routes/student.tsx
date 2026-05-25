@@ -8,6 +8,11 @@ import { GlowButton } from "@/components/GlowButton";
 import { jobs } from "@/lib/mock-data";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import * as pdfjsLib from "pdfjs-dist";
+import mammoth from "mammoth";
+
+// Set worker source for PDF.js
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 export const Route = createFileRoute("/student")({
   head: () => ({
@@ -55,70 +60,92 @@ function Student() {
     if (!file) return;
 
     setAnalyzing(true);
-    const reader = new FileReader();
+    
+    try {
+      let text = "";
 
-    reader.onload = async (event) => {
-      const text = event.target?.result as string;
+      if (file.type === "application/pdf") {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let fullText = "";
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          const strings = content.items.map((item: any) => item.str);
+          fullText += strings.join(" ") + "\n";
+        }
+        text = fullText;
+      } else if (
+        file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+        file.name.endsWith(".docx")
+      ) {
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        text = result.value;
+      } else {
+        // Fallback to plain text for .txt and other formats
+        text = await file.text();
+      }
+
+      if (!text.trim()) {
+        throw new Error("Could not extract text from the resume. Please ensure it's not empty or an image-only PDF.");
+      }
+
       const apiKey = import.meta.env.VITE_GROQ_API_KEY;
-
       if (!apiKey) {
         toast.error("VITE_GROQ_API_KEY is not defined");
         setAnalyzing(false);
         return;
       }
 
-      try {
-        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "llama-3.3-70b-versatile",
-            messages: [
-              {
-                role: "system",
-                content: "You are a resume analyzer for Indian job seekers.",
-              },
-              {
-                role: "user",
-                content: `Analyze this resume. Return ONLY JSON: 
-                { 
-                  "name": "string", 
-                  "education": "string", 
-                  "experience_level": "Fresher/1-2 years/3-5 years", 
-                  "skills": ["array of skills"], 
-                  "skill_scores": { "skillName": 0_to_100 }, 
-                  "profile_strength": 0-100, 
-                  "top_job_roles": ["3 strings"], 
-                  "missing_skills": ["4 strings"], 
-                  "summary": "string (2 lines about the candidate)" 
-                } 
-                Resume text: ${text}`,
-              },
-            ],
-            response_format: { type: "json_object" },
-          }),
-        });
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            {
+              role: "system",
+              content: "You are a resume analyzer for Indian job seekers.",
+            },
+            {
+              role: "user",
+              content: `Analyze this resume. Return ONLY JSON: 
+              { 
+                "name": "string", 
+                "education": "string", 
+                "experience_level": "Fresher/1-2 years/3-5 years", 
+                "skills": ["array of skills"], 
+                "skill_scores": { "skillName": 0_to_100 }, 
+                "profile_strength": 0-100, 
+                "top_job_roles": ["3 strings"], 
+                "missing_skills": ["4 strings"], 
+                "summary": "string (2 lines about the candidate)" 
+              } 
+              Resume text: ${text}`,
+            },
+          ],
+          response_format: { type: "json_object" },
+        }),
+      });
 
-        if (!response.ok) throw new Error("API call failed");
+      if (!response.ok) throw new Error("API call failed");
 
-        const data = await response.json();
-        const analysis: ResumeAnalysis = JSON.parse(data.choices[0].message.content);
+      const data = await response.json();
+      const analysis: ResumeAnalysis = JSON.parse(data.choices[0].message.content);
 
-        localStorage.setItem("resumeData", JSON.stringify(analysis));
-        setResumeData(analysis);
-        toast.success("Resume analyzed successfully!");
-      } catch (error) {
-        console.error(error);
-        toast.error("Failed to analyze resume. Please try again.");
-      } finally {
-        setAnalyzing(false);
-      }
-    };
-
-    reader.readAsText(file);
+      localStorage.setItem("resumeData", JSON.stringify(analysis));
+      setResumeData(analysis);
+      toast.success("Resume analyzed successfully!");
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || "Failed to analyze resume. Please try again.");
+    } finally {
+      setAnalyzing(false);
+    }
   };
 
   const recommended = jobs.filter((j) => !j.flagged).slice(0, 3);
