@@ -69,8 +69,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { name: "twitter:title", content: "TrustHire — AI-Powered Hiring Trust Platform" },
       { name: "twitter:description", content: "We don't show more jobs. We show jobs we can prove are real. AI trust scoring for students and recruiters." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/edd643b4-870e-4744-aa40-6fa459c6081b/id-preview-048917f4--8480356a-73c5-461e-8f20-3c8dff5b7f4a.lovable.app-1779617188956.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/edd643b4-870e-4744-aa40-6fa459c6081b/id-preview-048917f4--8480356a-73c5-461e-8f20-3c8dff5b7f4a.lovable.app-1779617188956.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
