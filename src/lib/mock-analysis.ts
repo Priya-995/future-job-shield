@@ -8,76 +8,69 @@ export type AnalysisResult = {
   suspicious: string[];
 };
 
-function hash(s: string) {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
+export async function analyze(input: RecruiterInput): Promise<AnalysisResult> {
+  const apiKey = import.meta.env.VITE_GROQ_API_KEY;
 
-export function analyze(input: RecruiterInput): AnalysisResult {
-  const text = `${input.company} ${input.jobTitle} ${input.salary} ${input.website} ${input.description}`.toLowerCase();
-  const h = hash(text);
+  if (!apiKey) {
+    throw new Error("VITE_GROQ_API_KEY is not defined");
+  }
 
-  const sketchyTerms = ["urgent", "earn $", "no experience", "wire transfer", "telegram", "western union", "crypto payout", "$5000/week", "guarantee"];
-  const flagHits = sketchyTerms.filter((t) => text.includes(t)).length;
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        {
+          role: "system",
+          content: "Return ONLY valid JSON, no markdown",
+        },
+        {
+          role: "user",
+          content: `Analyze this job for fraud and return JSON with: overall_score, verdict, fraud_risk, domain_credibility, salary_transparency, hiring_authenticity, scam_detection, language_analysis, positive_signals[], suspicious_signals[].
+          
+          Company: ${input.company}
+          Job Title: ${input.jobTitle}
+          Salary: ${input.salary}
+          Website: ${input.website}
+          Job Description: ${input.description}`,
+        },
+      ],
+      response_format: { type: "json_object" },
+    }),
+  });
 
-  const hasDomain = /\.(com|io|co|ai|dev|org)/.test(input.website);
-  const hasSalaryNum = /\d/.test(input.salary);
-  const longJD = input.description.length > 180;
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(`Groq API error: ${response.status} ${JSON.stringify(errorData)}`);
+  }
 
-  let base = 65 + (h % 25); // 65-89
-  if (hasDomain) base += 4;
-  if (hasSalaryNum) base += 3;
-  if (longJD) base += 3;
-  base -= flagHits * 22;
-  const trustScore = Math.max(8, Math.min(98, base));
+  const data = await response.json();
+  const content = JSON.parse(data.choices[0].message.content);
 
   const tone = (n: number): "good" | "warn" | "bad" => (n >= 75 ? "good" : n >= 50 ? "warn" : "bad");
 
-  const fraudRisk = Math.max(2, 100 - trustScore - (h % 8));
-  const domainCred = hasDomain ? 78 + (h % 20) : 24 + (h % 18);
-  const salaryT = hasSalaryNum && flagHits === 0 ? 80 + (h % 18) : 30 + (h % 25);
-  const hiringAuth = trustScore - 4 + ((h >> 3) % 10);
-  const scamDet = 100 - fraudRisk;
-  const langAna = longJD ? 82 + (h % 15) : 55 + (h % 20);
-
   const metrics = [
-    { label: "Fraud Risk", value: fraudRisk, tone: fraudRisk < 25 ? "good" as const : fraudRisk < 55 ? "warn" as const : "bad" as const },
-    { label: "Domain Credibility", value: domainCred, tone: tone(domainCred) },
-    { label: "Salary Transparency", value: salaryT, tone: tone(salaryT) },
-    { label: "Hiring Authenticity", value: Math.max(10, Math.min(98, hiringAuth)), tone: tone(hiringAuth) },
-    { label: "AI Scam Detection", value: scamDet, tone: tone(scamDet) },
-    { label: "Language Analysis", value: langAna, tone: tone(langAna) },
+    {
+      label: "Fraud Risk",
+      value: content.fraud_risk,
+      tone: content.fraud_risk < 25 ? ("good" as const) : content.fraud_risk < 55 ? ("warn" as const) : ("bad" as const),
+    },
+    { label: "Domain Credibility", value: content.domain_credibility, tone: tone(content.domain_credibility) },
+    { label: "Salary Transparency", value: content.salary_transparency, tone: tone(content.salary_transparency) },
+    { label: "Hiring Authenticity", value: content.hiring_authenticity, tone: tone(content.hiring_authenticity) },
+    { label: "AI Scam Detection", value: content.scam_detection, tone: tone(content.scam_detection) },
+    { label: "Language Analysis", value: content.language_analysis, tone: tone(content.language_analysis) },
   ];
 
-  const positivesPool = [
-    "Domain registered over 4 years ago",
-    "Recruiter activity matches verified pattern",
-    "Salary aligns with market median (±8%)",
-    "Job description uses specific, measurable scope",
-    "Company has consistent hiring history",
-    "SSL certificate valid and trusted",
-    "No high-risk language detected",
-  ];
-  const suspiciousPool = [
-    "Salary deviates 4σ above market median",
-    "Domain registered within last 30 days",
-    "Job description contains urgency triggers",
-    "Recruiter account created < 14 days ago",
-    "External payment terms mentioned",
-    "Generic role description with no specifics",
-  ];
-
-  const positives = positivesPool.slice(0, trustScore > 80 ? 5 : trustScore > 60 ? 4 : 2);
-  const suspicious = flagHits > 0 || trustScore < 70
-    ? suspiciousPool.slice(0, flagHits > 0 ? 4 : 2)
-    : suspiciousPool.slice(0, 1);
-
-  const verdict =
-    trustScore >= 85 ? "Highly Trusted — Safe to Apply" :
-    trustScore >= 65 ? "Mostly Trusted — Minor Caution" :
-    trustScore >= 40 ? "Risky — Verify Independently" :
-    "Likely Scam — Do Not Engage";
-
-  return { trustScore, verdict, metrics, positives, suspicious };
+  return {
+    trustScore: content.overall_score,
+    verdict: content.verdict,
+    metrics,
+    positives: content.positive_signals,
+    suspicious: content.suspicious_signals,
+  };
 }

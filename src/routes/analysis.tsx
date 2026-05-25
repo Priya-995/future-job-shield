@@ -1,13 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, AlertTriangle, ArrowLeft, RotateCcw, Briefcase } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AlertTriangle, ArrowLeft, RotateCcw, Briefcase, CheckCircle2 } from "lucide-react";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, PolarRadiusAxis } from "recharts";
 import { TrustScoreRing } from "@/components/TrustScoreRing";
 import { LoadingScanner } from "@/components/LoadingScanner";
 import { GlowButton } from "@/components/GlowButton";
 import { useAnalysisStore } from "@/lib/store";
-import { analyze } from "@/lib/mock-analysis";
+import { analyze, type AnalysisResult } from "@/lib/mock-analysis";
 
 export const Route = createFileRoute("/analysis")({
   head: () => ({
@@ -25,6 +25,8 @@ function Analysis() {
   const input = useAnalysisStore((s) => s.input);
   const navigate = useNavigate();
   const [scanning, setScanning] = useState(true);
+  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!input) {
@@ -33,31 +35,77 @@ function Analysis() {
     }
   }, [input, navigate]);
 
-  const result = useMemo(() => (input ? analyze(input) : null), [input]);
+  useEffect(() => {
+    if (input && !result && !error) {
+      analyze(input)
+        .then(setResult)
+        .catch((err) => {
+          console.error(err);
+          setError(err.message || "Failed to analyze job posting");
+        });
+    }
+  }, [input, result, error]);
 
-  if (!input || !result) return null;
+  if (!input) return null;
 
   return (
     <div className="px-6 pb-12">
       <div className="mx-auto max-w-6xl">
-        <Link to="/recruiter" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6">
+        <Link
+          to="/recruiter"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6"
+        >
           <ArrowLeft className="h-4 w-4" /> Back to recruiter
         </Link>
 
-        {scanning ? (
+        {error ? (
+          <div className="glass rounded-3xl p-12 text-center">
+            <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
+            <h2 className="text-2xl font-display font-bold mb-2">Analysis Failed</h2>
+            <p className="text-muted-foreground mb-6">{error}</p>
+            <button
+              onClick={() => {
+                setError(null);
+                setResult(null);
+                setScanning(true);
+              }}
+              className="inline-flex items-center gap-2 rounded-full glass px-6 py-3 hover:bg-foreground/5"
+            >
+              <RotateCcw className="h-4 w-4" /> Try Again
+            </button>
+          </div>
+        ) : scanning || !result ? (
           <div className="glass rounded-3xl">
             <LoadingScanner onDone={() => setScanning(false)} />
           </div>
         ) : (
-          <Results input={input} result={result} onRescan={() => setScanning(true)} />
+          <Results
+            input={input}
+            result={result}
+            onRescan={() => {
+              setResult(null);
+              setScanning(true);
+            }}
+          />
         )}
       </div>
     </div>
   );
 }
 
-function Results({ input, result, onRescan }: { input: { company: string; jobTitle: string }; result: ReturnType<typeof analyze>; onRescan: () => void }) {
-  const radarData = result.metrics.map((m) => ({ subject: m.label.replace(" ", "\n"), value: m.label === "Fraud Risk" ? 100 - m.value : m.value }));
+function Results({
+  input,
+  result,
+  onRescan,
+}: {
+  input: { company: string; jobTitle: string };
+  result: AnalysisResult;
+  onRescan: () => void;
+}) {
+  const radarData = result.metrics.map((m) => ({
+    subject: m.label.replace(" ", "\n"),
+    value: m.label === "Fraud Risk" ? 100 - m.value : m.value,
+  }));
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }} className="space-y-6">
@@ -73,10 +121,15 @@ function Results({ input, result, onRescan }: { input: { company: string; jobTit
             <Briefcase className="h-4 w-4" /> {input.jobTitle} <span className="text-foreground/40">·</span> {input.company}
           </div>
           <div className="mt-6 flex flex-wrap gap-3">
-            <button onClick={onRescan} className="inline-flex items-center gap-1.5 rounded-full glass px-4 py-2 text-sm hover:bg-foreground/5">
+            <button
+              onClick={onRescan}
+              className="inline-flex items-center gap-1.5 rounded-full glass px-4 py-2 text-sm hover:bg-foreground/5"
+            >
               <RotateCcw className="h-3.5 w-3.5" /> Re-run
             </button>
-            <Link to="/jobs"><GlowButton size="md">View matching candidates</GlowButton></Link>
+            <Link to="/jobs">
+              <GlowButton size="md">View matching candidates</GlowButton>
+            </Link>
           </div>
         </div>
       </div>
@@ -93,7 +146,9 @@ function Results({ input, result, onRescan }: { input: { company: string; jobTit
           >
             <div className="flex items-center justify-between">
               <div className="text-xs uppercase tracking-[0.15em] text-muted-foreground">{m.label}</div>
-              <div className={`text-2xl font-display font-bold tabular-nums ${m.tone === "good" ? "text-gradient" : m.tone === "warn" ? "text-warning" : "text-destructive"}`}>
+              <div
+                className={`text-2xl font-display font-bold tabular-nums ${m.tone === "good" ? "text-gradient" : m.tone === "warn" ? "text-warning" : "text-destructive"}`}
+              >
                 {m.value}
               </div>
             </div>
@@ -114,7 +169,12 @@ function Results({ input, result, onRescan }: { input: { company: string; jobTit
       <div className="grid lg:grid-cols-[1fr_1fr_360px] gap-4">
         <SignalCol title="Positive Signals" tone="good" items={result.positives} />
         <SignalCol title="Suspicious Signals" tone="bad" items={result.suspicious} />
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="glass rounded-2xl p-5">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4 }}
+          className="glass rounded-2xl p-5"
+        >
           <div className="text-xs uppercase tracking-[0.15em] text-muted-foreground mb-2">Trust Profile</div>
           <ResponsiveContainer width="100%" height={260}>
             <RadarChart data={radarData}>
@@ -134,7 +194,12 @@ function SignalCol({ title, tone, items }: { title: string; tone: "good" | "bad"
   const Icon = tone === "good" ? CheckCircle2 : AlertTriangle;
   const color = tone === "good" ? "text-success" : "text-destructive";
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass rounded-2xl p-5">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.3 }}
+      className="glass rounded-2xl p-5"
+    >
       <div className="text-xs uppercase tracking-[0.15em] text-muted-foreground mb-3">{title}</div>
       <ul className="space-y-3">
         {items.length === 0 && <li className="text-sm text-muted-foreground">— none detected —</li>}

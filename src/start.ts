@@ -1,4 +1,5 @@
 import { createStart, createMiddleware } from "@tanstack/react-start";
+import "./styles.css";
 
 import { renderErrorPage } from "./lib/error-page";
 
