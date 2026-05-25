@@ -3,9 +3,16 @@ import type { RecruiterInput } from "./store";
 export type AnalysisResult = {
   trustScore: number;
   verdict: string;
-  metrics: { label: string; value: number; tone: "good" | "warn" | "bad" }[];
-  positives: string[];
-  suspicious: string[];
+  breakdown: {
+    domain_credibility: number;
+    salary_reality: number;
+    jd_quality: number;
+    company_footprint: number;
+    recruiter_authenticity: number;
+  };
+  red_flags: string[];
+  green_signals: string[];
+  summary: string;
 };
 
 export async function analyze(input: RecruiterInput): Promise<AnalysisResult> {
@@ -26,17 +33,62 @@ export async function analyze(input: RecruiterInput): Promise<AnalysisResult> {
       messages: [
         {
           role: "system",
-          content: "Return ONLY valid JSON, no markdown",
+          content: `You are a job trust verification engine. Analyze this job posting and return a trust score from 0–100 with breakdown. 
+ 
+ Score these factors: 
+ - Domain credibility (check if website URL looks real, has HTTPS) → 20 pts 
+ - Salary reality check (is salary realistic for this role + fresher/intern level?) → 20 pts 
+ - JD quality (clear responsibilities, no fake promises, no 'guaranteed job') → 20 pts 
+ - Company footprint (LinkedIn URL provided, founding year given) → 20 pts 
+ - Recruiter authenticity (LinkedIn provided, professional email) → 20 pts 
+ 
+ Apply these penalties: 
+ - Contact email is gmail/yahoo → -15 points 
+ - Registration/training fee mentioned → -40 points 
+ - Salary > 3x market rate for fresher → -20 points 
+ - Unrealistic promises detected ('guaranteed', 'no experience 1L/month') → -25 points 
+ 
+ Apply these bonuses: 
+ - Recruiter LinkedIn provided → +10 points 
+ - Company LinkedIn provided → +10 points 
+ - Company founding year provided → +5 points 
+ 
+ If Company Stage = 'Early Stage Startup': 
+ DO NOT penalize for: new domain, no Glassdoor, small LinkedIn presence. 
+ INSTEAD evaluate: founder credibility, salary transparency, honest about being early stage, clear role description. 
+ A startup being honest about being small scores HIGHER than one pretending to be big. 
+ 
+ Return ONLY valid JSON: 
+ { 
+   "trust_score": number, 
+   "verdict": "Trusted" | "Caution" | "High Risk", 
+   "breakdown": { 
+     "domain_credibility": number, 
+     "salary_reality": number, 
+     "jd_quality": number, 
+     "company_footprint": number, 
+     "recruiter_authenticity": number 
+   }, 
+   "red_flags": string[], 
+   "green_signals": string[], 
+   "summary": string 
+ }`,
         },
         {
           role: "user",
-          content: `Analyze this job for fraud and return JSON with: overall_score, verdict, fraud_risk, domain_credibility, salary_transparency, hiring_authenticity, scam_detection, language_analysis, positive_signals[], suspicious_signals[].
+          content: `Analyze this job posting:
           
           Company: ${input.company}
           Job Title: ${input.jobTitle}
           Salary: ${input.salary}
           Website: ${input.website}
-          Job Description: ${input.description}`,
+          Job Description: ${input.description}
+          Company Stage: ${input.companyStage}
+          Recruiter LinkedIn: ${input.recruiterLinkedIn}
+          Company LinkedIn: ${input.companyLinkedIn}
+          Contact Email: ${input.contactEmail}
+          Registration Fee: ${input.hasFee ? "Yes" : "No"}
+          Founding Year: ${input.foundingYear}`,
         },
       ],
       response_format: { type: "json_object" },
@@ -49,41 +101,25 @@ export async function analyze(input: RecruiterInput): Promise<AnalysisResult> {
   }
 
   const data = await response.json();
-  const content = JSON.parse(data.choices[0].message.content);
+  const text = data.choices[0].message.content;
 
-  const normalize = (n: number) => {
-    const val = n < 1 ? n * 100 : n;
-    return Math.round(val);
+  // Robust JSON extraction
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error("No JSON in response");
+  const content = JSON.parse(jsonMatch[0]);
+
+  const parseScore = (val: any) => {
+    if (typeof val === "number") return val;
+    const num = parseInt(String(val).replace(/[^0-9]/g, ""));
+    return isNaN(num) ? 0 : num;
   };
 
-  const overallScore = normalize(content.overall_score);
-  const fraudRisk = normalize(content.fraud_risk);
-  const domainCredibility = normalize(content.domain_credibility);
-  const salaryTransparency = normalize(content.salary_transparency);
-  const hiringAuthenticity = normalize(content.hiring_authenticity);
-  const scamDetection = normalize(content.scam_detection);
-  const languageAnalysis = normalize(content.language_analysis);
-
-  const tone = (n: number): "good" | "warn" | "bad" => (n >= 75 ? "good" : n >= 50 ? "warn" : "bad");
-
-  const metrics = [
-    {
-      label: "Fraud Risk",
-      value: fraudRisk,
-      tone: fraudRisk < 25 ? ("good" as const) : fraudRisk < 55 ? ("warn" as const) : ("bad" as const),
-    },
-    { label: "Domain Credibility", value: domainCredibility, tone: tone(domainCredibility) },
-    { label: "Salary Transparency", value: salaryTransparency, tone: tone(salaryTransparency) },
-    { label: "Hiring Authenticity", value: hiringAuthenticity, tone: tone(hiringAuthenticity) },
-    { label: "AI Scam Detection", value: scamDetection, tone: tone(scamDetection) },
-    { label: "Language Analysis", value: languageAnalysis, tone: tone(languageAnalysis) },
-  ];
-
   return {
-    trustScore: overallScore,
+    trustScore: parseScore(content.trust_score),
     verdict: content.verdict,
-    metrics,
-    positives: content.positive_signals,
-    suspicious: content.suspicious_signals,
+    breakdown: content.breakdown,
+    red_flags: content.red_flags,
+    green_signals: content.green_signals,
+    summary: content.summary,
   };
 }

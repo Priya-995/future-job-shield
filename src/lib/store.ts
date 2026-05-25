@@ -6,6 +6,12 @@ export type RecruiterInput = {
   salary: string;
   website: string;
   description: string;
+  companyStage: string;
+  recruiterLinkedIn: string;
+  companyLinkedIn: string;
+  contactEmail: string;
+  hasFee: boolean;
+  foundingYear: string;
 };
 
 type Store = {

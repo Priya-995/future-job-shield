@@ -1,13 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { AlertTriangle, ArrowLeft, RotateCcw, Briefcase, CheckCircle2 } from "lucide-react";
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, PolarRadiusAxis } from "recharts";
+import { AlertTriangle, ArrowLeft, RotateCcw, Briefcase, CheckCircle2, XCircle, ShieldCheck, ShieldAlert, Shield } from "lucide-react";
 import { TrustScoreRing } from "@/components/TrustScoreRing";
 import { LoadingScanner } from "@/components/LoadingScanner";
 import { GlowButton } from "@/components/GlowButton";
 import { useAnalysisStore } from "@/lib/store";
 import { analyze, type AnalysisResult } from "@/lib/mock-analysis";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/analysis")({
   head: () => ({
@@ -98,124 +98,135 @@ function Results({
   result,
   onRescan,
 }: {
-  input: { company: string; jobTitle: string };
+  input: any;
   result: AnalysisResult;
   onRescan: () => void;
 }) {
-  const radarData = result.metrics.map((m) => ({
-    subject: m.label.replace(" ", "\n"),
-    value: m.label === "Fraud Risk" ? 100 - m.value : m.value,
-  }));
+  const getVerdictColor = (score: number) => {
+    if (score >= 75) return "text-success";
+    if (score >= 40) return "text-warning";
+    return "text-destructive";
+  };
+
+  const getVerdictLabel = (score: number) => {
+    if (score >= 75) return "Trusted Job";
+    if (score >= 40) return "Proceed with Caution";
+    return "High Risk — Likely Scam";
+  };
+
+  const getVerdictIcon = (score: number) => {
+    if (score >= 75) return ShieldCheck;
+    if (score >= 40) return Shield;
+    return ShieldAlert;
+  };
+
+  const VerdictIcon = getVerdictIcon(result.trustScore);
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }} className="space-y-6">
-      {/* Header */}
-      <div className="glass rounded-3xl p-6 sm:p-10 grid md:grid-cols-[280px_1fr] gap-8 items-center">
-        <div className="flex justify-center">
-          <TrustScoreRing score={result.trustScore} size={240} />
-        </div>
-        <div>
-          <div className="text-xs uppercase tracking-[0.2em] text-primary">Verdict</div>
-          <h1 className="mt-2 text-3xl sm:text-4xl font-display font-bold">{result.verdict}</h1>
-          <div className="mt-3 text-muted-foreground flex items-center gap-2">
-            <Briefcase className="h-4 w-4" /> {input.jobTitle} <span className="text-foreground/40">·</span> {input.company}
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+      {/* Header / Main Score */}
+      <div className="glass rounded-[40px] p-8 sm:p-12 grid lg:grid-cols-[1fr_360px] gap-12 items-center border-primary/10 border">
+        <div className="order-2 lg:order-1">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted-foreground mb-4">
+            <VerdictIcon className={cn("h-4 w-4", getVerdictColor(result.trustScore))} />
+            Analysis Verdict
           </div>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <button
-              onClick={onRescan}
-              className="inline-flex items-center gap-1.5 rounded-full glass px-4 py-2 text-sm hover:bg-foreground/5"
-            >
-              <RotateCcw className="h-3.5 w-3.5" /> Re-run
-            </button>
+          <h1 className={cn("text-4xl sm:text-5xl font-display font-bold mb-4", getVerdictColor(result.trustScore))}>
+            {getVerdictLabel(result.trustScore)}
+          </h1>
+          <p className="text-lg text-muted-foreground leading-relaxed mb-8">
+            {result.summary}
+          </p>
+          
+          <div className="flex items-center gap-3 p-4 rounded-2xl bg-foreground/5 border border-border w-fit mb-8">
+            <Briefcase className="h-5 w-5 text-primary" />
+            <div>
+              <div className="text-sm font-bold">{input.jobTitle}</div>
+              <div className="text-xs text-muted-foreground">{input.company}</div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-4">
+            <GlowButton onClick={onRescan} variant="ghost" size="lg">
+              <RotateCcw className="h-4 w-4" /> Re-run Analysis
+            </GlowButton>
             <Link to="/jobs">
-              <GlowButton size="md">View matching candidates</GlowButton>
+              <GlowButton size="lg">Verify Similar Jobs <Briefcase className="h-4 w-4" /></GlowButton>
             </Link>
           </div>
         </div>
+
+        <div className="order-1 lg:order-2 flex flex-col items-center justify-center space-y-4">
+          <TrustScoreRing score={result.trustScore} size={280} />
+          <div className="text-center">
+            <div className="text-5xl font-display font-bold tabular-nums">{result.trustScore}</div>
+            <div className="text-xs uppercase tracking-widest text-muted-foreground mt-1">Trust Points</div>
+          </div>
+        </div>
       </div>
 
-      {/* Metrics grid */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {result.metrics.map((m, i) => (
-          <motion.div
-            key={m.label}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: i * 0.05 }}
-            className="glass rounded-2xl p-5"
-          >
-            <div className="flex items-center justify-between">
-              <div className="text-xs uppercase tracking-[0.15em] text-muted-foreground">{m.label}</div>
-              <div
-                className={`text-2xl font-display font-bold tabular-nums ${m.tone === "good" ? "text-gradient" : m.tone === "warn" ? "text-warning" : "text-destructive"}`}
-              >
-                {m.value}
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Trust Factors Breakdown */}
+        <section className="glass rounded-[32px] p-8 border border-border">
+          <h2 className="text-xl font-display font-bold mb-6 flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-primary" /> Trust Factors Breakdown
+          </h2>
+          <div className="space-y-4">
+            {Object.entries(result.breakdown).map(([key, value]) => (
+              <div key={key} className="flex items-center justify-between group">
+                <div className="flex items-center gap-3">
+                  {value >= 14 ? ( // 14/20 is 70%
+                    <div className="h-8 w-8 rounded-full bg-success/10 flex items-center justify-center">
+                      <CheckCircle2 className="h-5 w-5 text-success" />
+                    </div>
+                  ) : (
+                    <div className="h-8 w-8 rounded-full bg-destructive/10 flex items-center justify-center">
+                      <XCircle className="h-5 w-5 text-destructive" />
+                    </div>
+                  )}
+                  <span className="text-sm font-medium capitalize text-foreground/80 group-hover:text-foreground transition-colors">
+                    {key.replace(/_/g, " ")}
+                  </span>
+                </div>
+                <div className="text-sm font-bold tabular-nums opacity-60 group-hover:opacity-100 transition-opacity">
+                  {value}/20
+                </div>
               </div>
-            </div>
-            <div className="mt-3 h-2 rounded-full bg-foreground/10 overflow-hidden">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${m.value}%` }}
-                transition={{ duration: 1.2, delay: 0.2 + i * 0.05, ease: [0.22, 1, 0.36, 1] }}
-                className={`h-full rounded-full ${m.tone === "good" ? "bg-gradient-primary" : m.tone === "warn" ? "bg-warning" : "bg-destructive"}`}
-                style={{ boxShadow: m.tone === "good" ? "0 0 12px var(--primary)" : undefined }}
-              />
-            </div>
-          </motion.div>
-        ))}
-      </div>
+            ))}
+          </div>
+        </section>
 
-      {/* Signals + Radar */}
-      <div className="grid lg:grid-cols-[1fr_1fr_360px] gap-4">
-        <SignalCol title="Positive Signals" tone="good" items={result.positives} />
-        <SignalCol title="Suspicious Signals" tone="bad" items={result.suspicious} />
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.4 }}
-          className="glass rounded-2xl p-5"
-        >
-          <div className="text-xs uppercase tracking-[0.15em] text-muted-foreground mb-2">Trust Profile</div>
-          <ResponsiveContainer width="100%" height={260}>
-            <RadarChart data={radarData}>
-              <PolarGrid stroke="oklch(0.4 0.04 275 / 0.4)" />
-              <PolarAngleAxis dataKey="subject" tick={{ fill: "oklch(0.7 0.03 265)", fontSize: 10 }} />
-              <PolarRadiusAxis tick={false} axisLine={false} domain={[0, 100]} />
-              <Radar dataKey="value" stroke="oklch(0.72 0.2 280)" fill="oklch(0.65 0.22 280)" fillOpacity={0.4} />
-            </RadarChart>
-          </ResponsiveContainer>
-        </motion.div>
-      </div>
-    </motion.div>
-  );
-}
+        {/* Signals Section */}
+        <div className="space-y-6">
+          <div className="glass rounded-[32px] p-8 border-success/10 border bg-success/5">
+            <h3 className="text-sm uppercase tracking-widest font-bold text-success mb-4 flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4" /> Green Signals
+            </h3>
+            <ul className="space-y-3">
+              {result.green_signals.map((s, i) => (
+                <li key={i} className="text-sm flex items-start gap-2 text-foreground/80">
+                  <div className="h-1.5 w-1.5 rounded-full bg-success mt-1.5 shrink-0" />
+                  {s}
+                </li>
+              ))}
+            </ul>
+          </div>
 
-function SignalCol({ title, tone, items }: { title: string; tone: "good" | "bad"; items: string[] }) {
-  const Icon = tone === "good" ? CheckCircle2 : AlertTriangle;
-  const color = tone === "good" ? "text-success" : "text-destructive";
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.3 }}
-      className="glass rounded-2xl p-5"
-    >
-      <div className="text-xs uppercase tracking-[0.15em] text-muted-foreground mb-3">{title}</div>
-      <ul className="space-y-3">
-        {items.length === 0 && <li className="text-sm text-muted-foreground">— none detected —</li>}
-        {items.map((s, i) => (
-          <motion.li
-            key={s}
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 + i * 0.08 }}
-            className="flex items-start gap-2 text-sm"
-          >
-            <Icon className={`h-4 w-4 ${color} flex-shrink-0 mt-0.5`} />
-            <span>{s}</span>
-          </motion.li>
-        ))}
-      </ul>
+          <div className="glass rounded-[32px] p-8 border-destructive/10 border bg-destructive/5">
+            <h3 className="text-sm uppercase tracking-widest font-bold text-destructive mb-4 flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4" /> Red Flags
+            </h3>
+            <ul className="space-y-3">
+              {result.red_flags.map((s, i) => (
+                <li key={i} className="text-sm flex items-start gap-2 text-foreground/80">
+                  <div className="h-1.5 w-1.5 rounded-full bg-destructive mt-1.5 shrink-0" />
+                  {s}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
     </motion.div>
   );
 }

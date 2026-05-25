@@ -68,10 +68,18 @@ function Fit() {
     try {
       const saved = localStorage.getItem("resumeData");
       if (saved) {
-        setResumeData(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        // Basic migration/validation check
+        if (parsed && (parsed.breakdown || parsed.trust_breakdown)) {
+          setResumeData(parsed);
+        } else {
+          // Incompatible data, clear it
+          localStorage.removeItem("resumeData");
+        }
       }
     } catch (e) {
       console.error("Error loading resumeData", e);
+      localStorage.removeItem("resumeData");
     }
   }, []);
 
@@ -135,7 +143,13 @@ function Fit() {
       if (!response.ok) throw new Error("API call failed");
 
       const data = await response.json();
-      const analysis: FitAnalysis = JSON.parse(data.choices[0].message.content);
+      const text = data.choices[0].message.content;
+      
+      // Robust JSON extraction
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error("No JSON in response");
+      
+      const analysis: FitAnalysis = JSON.parse(jsonMatch[0]);
       setFitResult(analysis);
     } catch (error) {
       console.error(error);

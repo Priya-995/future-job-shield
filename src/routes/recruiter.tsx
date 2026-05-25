@@ -1,9 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { Building2, Briefcase, DollarSign, Globe, Sparkles, Clock } from "lucide-react";
+import { Building2, Briefcase, DollarSign, Globe, Sparkles, Clock, Mail, Link2, History, ShieldAlert, AlertCircle } from "lucide-react";
 import { useState } from "react";
 import { GlowButton } from "@/components/GlowButton";
 import { useAnalysisStore } from "@/lib/store";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/recruiter")({
   head: () => ({
@@ -26,7 +27,15 @@ function Recruiter() {
     salary: "$8,000 / month",
     website: "https://stripe.com",
     description: "We're hiring a frontend engineer intern to ship product surfaces in our Dashboard. You'll work with React, TypeScript, and our internal design system. Competitive comp, mentorship from senior engineers, and a structured intern program with end-of-summer offers for top performers.",
+    companyStage: "Established Company (2+ years)",
+    recruiterLinkedIn: "",
+    companyLinkedIn: "",
+    contactEmail: "",
+    hasFee: false,
+    foundingYear: "2010",
   });
+
+  const isPersonalEmail = form.contactEmail.match(/@(gmail|yahoo|hotmail|outlook)\./i);
 
   const recent = [
     { co: "Linear", title: "Design Intern", score: 94, t: "2m ago" },
@@ -58,12 +67,19 @@ function Recruiter() {
             transition={{ delay: 0.1 }}
             className="glass rounded-2xl p-6 sm:p-8 space-y-5"
           >
-            <Field icon={Building2} label="Company name">
-              <input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} className={inputCls} placeholder="Acme Inc." />
-            </Field>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <Field icon={Building2} label="Company name">
+                <input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} className={inputCls} placeholder="Acme Inc." />
+              </Field>
+              <Field icon={History} label="Founding Year">
+                <input type="number" value={form.foundingYear} onChange={(e) => setForm({ ...form, foundingYear: e.target.value })} className={inputCls} placeholder="2010" />
+              </Field>
+            </div>
+
             <Field icon={Briefcase} label="Job title">
               <input value={form.jobTitle} onChange={(e) => setForm({ ...form, jobTitle: e.target.value })} className={inputCls} placeholder="Senior Frontend Engineer" />
             </Field>
+
             <div className="grid sm:grid-cols-2 gap-4">
               <Field icon={DollarSign} label="Salary">
                 <input value={form.salary} onChange={(e) => setForm({ ...form, salary: e.target.value })} className={inputCls} placeholder="$8,000 / month" />
@@ -72,8 +88,85 @@ function Recruiter() {
                 <input value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} className={inputCls} placeholder="https://example.com" />
               </Field>
             </div>
+
+            <div className="space-y-3 p-4 rounded-xl bg-foreground/5 border border-border">
+              <div className="text-xs uppercase tracking-[0.15em] text-muted-foreground mb-2">Company Stage</div>
+              <div className="flex flex-wrap gap-4">
+                {["Established Company (2+ years)", "Early Stage Startup (0–2 years)", "Freelance / Contract Work"].map((stage) => (
+                  <label key={stage} className="flex items-center gap-2 cursor-pointer group">
+                    <input 
+                      type="radio" 
+                      name="companyStage" 
+                      checked={form.companyStage === stage} 
+                      onChange={() => setForm({ ...form, companyStage: stage })}
+                      className="accent-primary"
+                    />
+                    <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">{stage}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              <Field icon={Link2} label="Recruiter LinkedIn">
+                <input value={form.recruiterLinkedIn} onChange={(e) => setForm({ ...form, recruiterLinkedIn: e.target.value })} className={inputCls} placeholder="linkedin.com/in/..." />
+              </Field>
+              <Field icon={Link2} label="Company LinkedIn">
+                <input value={form.companyLinkedIn} onChange={(e) => setForm({ ...form, companyLinkedIn: e.target.value })} className={inputCls} placeholder="linkedin.com/company/..." />
+              </Field>
+            </div>
+
+            <Field icon={Mail} label="Contact Email">
+              <div className="space-y-2">
+                <input 
+                  type="email" 
+                  value={form.contactEmail} 
+                  onChange={(e) => setForm({ ...form, contactEmail: e.target.value })} 
+                  className={cn(inputCls, isPersonalEmail && "border-destructive/50 focus:ring-destructive/50")} 
+                  placeholder="hr@company.com" 
+                />
+                {isPersonalEmail && (
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-destructive/10 text-destructive text-[10px] font-bold uppercase tracking-wider border border-destructive/20 animate-in fade-in slide-in-from-top-1">
+                    <AlertCircle className="h-3 w-3" /> Personal email detected — reduces trust score
+                  </div>
+                )}
+              </div>
+            </Field>
+
+            <div className="p-4 rounded-xl bg-foreground/5 border border-border">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Registration/Training Fee?</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className={cn("text-xs font-bold uppercase tracking-widest", !form.hasFee ? "text-primary" : "text-muted-foreground")}>No</span>
+                  <button 
+                    type="button"
+                    onClick={() => setForm({ ...form, hasFee: !form.hasFee })}
+                    className={cn(
+                      "w-12 h-6 rounded-full transition-colors relative",
+                      form.hasFee ? "bg-destructive" : "bg-primary"
+                    )}
+                  >
+                    <motion.div 
+                      animate={{ x: form.hasFee ? 26 : 4 }}
+                      className="absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm"
+                    />
+                  </button>
+                  <span className={cn("text-xs font-bold uppercase tracking-widest", form.hasFee ? "text-destructive" : "text-muted-foreground")}>Yes</span>
+                </div>
+              </div>
+              {form.hasFee && (
+                <div className="mt-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-center gap-2 text-destructive animate-in zoom-in-95 duration-200">
+                  <ShieldAlert className="h-5 w-5 shrink-0" />
+                  <div className="text-xs font-bold uppercase tracking-wider">🚨 HIGH RISK: Fee-based jobs are auto-flagged</div>
+                </div>
+              )}
+            </div>
+
             <Field label="Job description">
-              <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={8} className={`${inputCls} resize-none font-mono text-sm`} placeholder="Paste the full job description…" />
+              <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={6} className={`${inputCls} resize-none font-mono text-sm`} placeholder="Paste the full job description…" />
               <div className="mt-1.5 text-xs text-muted-foreground">{form.description.length} chars · the more context, the better the score.</div>
             </Field>
 
