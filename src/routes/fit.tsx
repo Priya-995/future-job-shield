@@ -1,11 +1,35 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect } from "react";
-import { Sparkles, TrendingUp, Target, MessageSquare, Award, ArrowRight, Loader2, Search, RotateCcw } from "lucide-react";
+import { useState, useEffect, Component, ReactNode } from "react";
+import { Sparkles, TrendingUp, Target, MessageSquare, Award, ArrowRight, Loader2, Search, RotateCcw, AlertCircle, FileText } from "lucide-react";
 import { TypingText } from "@/components/TypingText";
 import { GlowButton } from "@/components/GlowButton";
 import { TrustScoreRing } from "@/components/TrustScoreRing";
 import { toast } from "sonner";
+
+// Simple Error Boundary Component
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex min-h-[60vh] flex-col items-center justify-center px-6 text-center">
+          <div className="glass rounded-3xl p-10 max-w-md border-destructive/20 border">
+            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+            <h1 className="text-2xl font-display font-bold mb-3">Something went wrong</h1>
+            <p className="text-muted-foreground mb-8 text-sm">We encountered an error processing your request. Please try refreshing the page.</p>
+            <GlowButton onClick={() => window.location.reload()} size="lg">Refresh Page</GlowButton>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export const Route = createFileRoute("/fit")({
   head: () => ({
@@ -13,10 +37,13 @@ export const Route = createFileRoute("/fit")({
       { title: "Honest Fit — TrustHire" },
       { name: "description", content: "Conversational AI explains why you match — and what's missing." },
       { property: "og:title", content: "Honest Fit — TrustHire" },
-      { property: "og:description", content: "Real talk from AI on your job fit." },
     ],
   }),
-  component: Fit,
+  component: () => (
+    <ErrorBoundary>
+      <Fit />
+    </ErrorBoundary>
+  ),
 });
 
 type FitAnalysis = {
@@ -38,9 +65,13 @@ function Fit() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const saved = localStorage.getItem("resumeData");
-    if (saved) {
-      setResumeData(JSON.parse(saved));
+    try {
+      const saved = localStorage.getItem("resumeData");
+      if (saved) {
+        setResumeData(JSON.parse(saved));
+      }
+    } catch (e) {
+      console.error("Error loading resumeData", e);
     }
   }, []);
 
@@ -78,10 +109,10 @@ function Fit() {
             {
               role: "user",
               content: `Analyze job fit: 
-              Candidate: ${resumeData.name} 
-              Skills: ${resumeData.skills.join(", ")} 
-              Experience: ${resumeData.experience_level} 
-              Education: ${resumeData.education} 
+              Candidate: ${resumeData?.name || "Candidate"} 
+              Skills: ${resumeData?.skills?.join(", ") || "Not provided"} 
+              Experience: ${resumeData?.experience_level || "Not provided"} 
+              Education: ${resumeData?.education || "Not provided"} 
               Target Job: ${targetJob} 
               
               Return ONLY JSON no markdown: 
@@ -118,16 +149,22 @@ function Fit() {
   if (!resumeData) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center px-6 text-center">
-        <div className="glass rounded-3xl p-10 max-w-md">
-          <FileText className="h-12 w-12 text-primary mx-auto mb-4 opacity-50" />
-          <h1 className="text-2xl font-display font-bold mb-3">No Resume Found</h1>
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }} 
+          animate={{ opacity: 1, y: 0 }}
+          className="glass rounded-3xl p-10 max-w-md border-primary/20 border"
+        >
+          <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-6 mx-auto text-primary">
+            <FileText className="h-8 w-8" />
+          </div>
+          <h1 className="text-2xl font-display font-bold mb-3">No Profile Found</h1>
           <p className="text-muted-foreground mb-8 text-sm leading-relaxed">
-            Please upload and analyze your resume on the Student page first so we can generate your honest fit.
+            Please analyze your profile on the Student page first so we can generate your honest fit.
           </p>
-          <GlowButton onClick={() => navigate({ to: "/student" })} size="lg">
+          <GlowButton onClick={() => navigate({ to: "/student" })} size="lg" className="w-full">
             Go to Student Page <ArrowRight className="h-4 w-4" />
           </GlowButton>
-        </div>
+        </motion.div>
       </div>
     );
   }
@@ -151,6 +188,7 @@ function Fit() {
             animate={{ opacity: 1, scale: 1 }} 
             className="glass rounded-3xl p-8 mb-12"
           >
+            <div className="text-xs uppercase tracking-widest text-muted-foreground mb-4 block text-center">Which job are you targeting?</div>
             <div className="relative">
               <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
                 <Search className="h-5 w-5" />
@@ -189,25 +227,25 @@ function Fit() {
               <motion.div 
                 initial={{ opacity: 0, y: 20 }} 
                 animate={{ opacity: 1, y: 0 }} 
-                className="glass rounded-3xl p-8 flex flex-col items-center text-center"
+                className="glass rounded-3xl p-8 flex flex-col items-center text-center border-primary/20 border"
               >
                 <TrustScoreRing score={fitResult.match_percentage} size={200} label="Match Fit" />
                 <div className="mt-6">
                   <div className="text-xs uppercase tracking-[0.2em] text-primary mb-1">Verdict</div>
                   <h2 className="text-3xl font-display font-bold">{fitResult.verdict}</h2>
-                  <p className="mt-2 text-muted-foreground italic">Target: {targetJob}</p>
+                  <p className="mt-2 text-muted-foreground italic font-medium text-sm">Target: {targetJob}</p>
                 </div>
               </motion.div>
 
               <div className="space-y-4">
                 {[
-                  { icon: Target, title: "Why you match", content: fitResult.why_you_match.join(" · ") },
-                  { icon: TrendingUp, title: "What's missing", content: fitResult.whats_missing.join(" · ") },
+                  { icon: Target, title: "Why you match", content: fitResult.why_you_match?.join(" · ") || "N/A" },
+                  { icon: TrendingUp, title: "What's missing", content: fitResult.whats_missing?.join(" · ") || "N/A" },
                   { icon: Award, title: "Growth Plan", 
-                    content: fitResult.growth_suggestions.map(s => `${s.skill}: ${s.action} (${s.timeline})`).join("\n") 
+                    content: fitResult.growth_suggestions?.map(s => `• ${s.skill}: ${s.action} (${s.timeline})`).join("\n") || "N/A" 
                   },
-                  { icon: MessageSquare, title: "Honest Feedback", content: fitResult.honest_feedback },
-                  { icon: Sparkles, title: "Final Recommendation", content: fitResult.final_recommendation },
+                  { icon: MessageSquare, title: "Honest Feedback", content: fitResult.honest_feedback || "N/A" },
+                  { icon: Sparkles, title: "Final Recommendation", content: fitResult.final_recommendation || "N/A" },
                 ].slice(0, sectionIndex + 1).map((s, idx) => {
                   const Icon = s.icon;
                   const isLast = idx === sectionIndex;
