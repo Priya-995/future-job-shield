@@ -8,13 +8,6 @@
 
 ### Stop falling for fake jobs. Stop guessing about candidates. Trust, verified.
 
-
-
-
-### *Stop Falling for Fake Jobs. Stop Guessing About Candidates.*
-
-**AI-Powered Hiring Trust Verification Platform**
-
 [![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-Visit_App-6366f1?style=for-the-badge)](https://future-job-shield.priya9899nk.workers.dev/)
 [![GitHub](https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github)](https://github.com/Priya-995/future-job-shield)
 [![TypeScript](https://img.shields.io/badge/TypeScript-97.7%25-3178C6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
