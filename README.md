@@ -6,10 +6,10 @@
    ██║   ██╔══██╗██║   ██║╚════██║   ██║   ██╔══██║██║██╔══██╗██╔══╝  
    ██║   ██║  ██║╚██████╔╝███████║   ██║   ██║  ██║██║██║  ██║███████╗
    ╚═╝   ╚═╝  ╚═╝ ╚═════╝ ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝╚═╝  ╚═╝╚══════╝
-AI-Powered Hiring Trust Verification Platform
+### AI-Powered Hiring Trust Verification Platform
 Stop falling for fake jobs. Stop guessing about candidates. Trust, verified.
 <br/>
-# 🛡️ TrustHire
+
 
 ### *Stop Falling for Fake Jobs. Stop Guessing About Candidates.*
 
