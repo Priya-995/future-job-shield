@@ -1,5 +1,5 @@
 <div align="center">
-<img src="https://drive.google.com/file/d/1dU0wc2lpmqAs0PcVpW-ARu27MXS2QC8e/view?usp=drive_link" alt="TrustHire" width="100%" />
+🛡️ TrustHire
 Stop Falling for Fake Jobs. Stop Guessing About Candidates.
 AI-Powered Hiring Trust Verification Platform
 Stop falling for fake jobs. Stop guessing about candidates. Trust, verified.
