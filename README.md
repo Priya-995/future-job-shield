@@ -271,13 +271,19 @@ A student who won a hackathon but never posted it still won it. Our honesty syst
 MIT License — see [LICENSE](LICENSE) for details.
 
 ---
-
 <div align="center">
 
 **If TrustHire saved you from a scam job — star this repo ⭐**
 
 *Built for India's 15 million job seekers who deserve better.*
 
-[![Live Demo](https://img.shields.io/badge/🚀_Try_It_Now-future--job--shield.priya9899nk.workers.dev-6366f1?style=for-the-badge)](https://future-job-shield.priya9899nk.workers.dev/)
+<br/>
+
+[![🚀 Live Demo](https://img.shields.io/badge/🚀_Live_Demo-Try_TrustHire-6366f1?style=for-the-badge)](https://future-job-shield.priya9899nk.workers.dev/)
+
+<br/><br/>
+
+🔗 **Live App:**  
+https://future-job-shield.priya9899nk.workers.dev/
 
 </div>
