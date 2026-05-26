@@ -14,7 +14,7 @@
 
 ---
 
-> **Built at Hackathon** — A real-time fraud detection engine for India's broken job market, powered by Groq AI (llama-3.3-70b-versatile). Every score is live AI, not mock data.
+>  A real-time fraud detection engine for India's broken job market, powered by Groq AI (llama-3.3-70b-versatile). Every score is live AI, not mock data.
 
 </div>
 
@@ -263,16 +263,6 @@ There's a fundamental difference between:
 - How **consistent** your work is over time
 
 A student who won a hackathon but never posted it still won it. Our honesty system doesn't punish you for poor documentation — it helps you fix that gap. A high-CGPA student with zero projects scores lower than a 7-pointer with three live apps. Because real companies don't hire grade sheets. They hire people who build things.
-
----
-
-## 👥 Team
-
-Built with ❤️ during a hackathon sprint.
-
-| | |
-|--|--|
-| **Priya** | Full-stack development, AI integration, product architecture |
 
 ---
 
