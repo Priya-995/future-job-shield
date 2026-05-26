@@ -1,5 +1,6 @@
 <div align="center">
 🛡️ TrustHire
+  <br/>
 Stop Falling for Fake Jobs. Stop Guessing About Candidates.
 AI-Powered Hiring Trust Verification Platform
 Stop falling for fake jobs. Stop guessing about candidates. Trust, verified.
